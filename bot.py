@@ -214,16 +214,20 @@ async def profile_keyboard(uid):
         [InlineKeyboardButton(t["btn_withdraw"], callback_data="withdraw")]
     ])
 
-async def payment_keyboard(uid):
+async def payment_inline_keyboard(uid):
     user = await get_user(uid)
-    buttons = []
     lang = await get_lang(uid)
-    if user.get("card"): buttons.append("🇷🇺 Рубли (карта)" if lang == "ru" else "🇷🇺 RUB (card)")
-    if user.get("crypto"): buttons.append("💵 USDT (крипта)" if lang == "ru" else "💵 USDT (crypto)")
-    if user.get("stars"): buttons.append("⭐ Звёзды (Telegram)" if lang == "ru" else "⭐ Stars (Telegram)")
-    if not buttons: buttons = ["⚠️ Сначала добавь реквизиты" if lang == "ru" else "⚠️ Add details first"]
-    keyboard = [[KeyboardButton(b)] for b in buttons]
-    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    buttons = []
+    if user.get("card"):
+        text_btn = "🇷🇺 Рубли (карта)" if lang == "ru" else "🇷🇺 RUB (card)"
+        buttons.append([InlineKeyboardButton(text_btn, callback_data="pay_method_rub")])
+    if user.get("crypto"):
+        text_btn = "💵 USDT (крипта)" if lang == "ru" else "💵 USDT (crypto)"
+        buttons.append([InlineKeyboardButton(text_btn, callback_data="pay_method_crypto")])
+    if user.get("stars"):
+        text_btn = "⭐ Звёзды (Telegram)" if lang == "ru" else "⭐ Stars (Telegram)"
+        buttons.append([InlineKeyboardButton(text_btn, callback_data="pay_method_stars")])
+    return InlineKeyboardMarkup(buttons)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
@@ -335,9 +339,8 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(no_reqs_txt)
             return
         choose_pay_txt = await get_text(uid, "choose_pay")
-        kb = await payment_keyboard(uid)
+        kb = await payment_inline_keyboard(uid)
         await update.message.reply_text(choose_pay_txt, reply_markup=kb)
-        context.user_data['awaiting_payment'] = True
         return
 
     elif text == t["btn_ref"]:
@@ -350,14 +353,6 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(sup_txt)
         return
 
-    elif text in ["🇷🇺 Рубли (карта)", "💵 USDT (крипта)", "⭐ Звёзды (Telegram)", "🇷🇺 RUB (card)", "💵 USDT (crypto)", "⭐ Stars (Telegram)"] and context.user_data.get('awaiting_payment'):
-        context.user_data['payment_method'] = text
-        context.user_data['awaiting_payment'] = False
-        nft_name_txt = await get_text(uid, "nft_name")
-        await update.message.reply_text(nft_name_txt)
-        context.user_data['awaiting_nft'] = True
-        return
-        
     elif text in ["🔙 Назад", "🔙 Back"]:
         kb = await main_menu_keyboard(uid)
         back_txt = await get_text(uid, "back")
@@ -437,15 +432,14 @@ async def handle_text_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
         buyer_username = text.strip().replace('@', '')
         context.user_data['buyer_username'] = buyer_username
         context.user_data['awaiting_buyer'] = False
-        await finish_deal(update, context)
+        await finish_deal_from_state(update, context)
         return
 
-    # Если текст пришел вне контекста состояний, можно мягко подсказать
     unknown_txt = await get_text(uid, "unknown")
     kb = await main_menu_keyboard(uid)
     await update.message.reply_text(unknown_txt, reply_markup=kb)
 
-async def finish_deal(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def finish_deal_from_state(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
     deal_data = {
         "nft": context.user_data.get('nft_name'), 
@@ -510,6 +504,18 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         back_txt = await get_text(uid, "back")
         kb = await main_menu_keyboard(uid)
         await query.message.reply_text(back_txt, reply_markup=kb)
+        return
+
+    elif data.startswith("pay_method_"):
+        method_map = {
+            "pay_method_rub": "🇷🇺 Рубли (карта)",
+            "pay_method_crypto": "💵 USDT (крипта)",
+            "pay_method_stars": "⭐ Звёзды (Telegram)"
+        }
+        context.user_data['payment_method'] = method_map.get(data, "💵 USDT (крипта)")
+        nft_name_txt = await get_text(uid, "nft_name")
+        await query.message.reply_text(nft_name_txt)
+        context.user_data['awaiting_nft'] = True
         return
 
     if data.startswith("pay_"):
@@ -600,7 +606,7 @@ def main():
     app.add_handler(CommandHandler("usd", usd_command))
     app.add_handler(CommandHandler("stars", stars_command))
     
-    button_filter = r"^(💼 Профиль|➕ Создать сделку|📊 Реферальная ссылка|🌐 Change language|🆘 Поддержка|💼 Profile|➕ Create deal|📊 Referral link|🆘 Support|🇷🇺 Рубли \(карта\)|💵 USDT \(крипта\)|⭐ Звёзды \(Telegram\)|🇷🇺 RUB \(card\)|💵 USDT \(crypto\)|⭐ Stars \(Telegram\)|🔙 Назад|🔙 Back)$"
+    button_filter = r"^(💼 Профиль|➕ Создать сделку|📊 Реферальная ссылка|🌐 Change language|🆘 Поддержка|💼 Profile|➕ Create deal|📊 Referral link|🆘 Support|🔙 Назад|🔙 Back)$"
     
     app.add_handler(MessageHandler(filters.Regex(button_filter), handle_buttons))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_input))
