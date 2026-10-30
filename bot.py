@@ -298,7 +298,6 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = await get_lang(uid)
     t = TEXTS[lang]
 
-    # Очистка состояний при переходе по меню
     context.user_data.clear()
 
     if text == t["btn_profile"]:
@@ -440,6 +439,11 @@ async def handle_text_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['awaiting_buyer'] = False
         await finish_deal(update, context)
         return
+
+    # Если текст пришел вне контекста состояний, можно мягко подсказать
+    unknown_txt = await get_text(uid, "unknown")
+    kb = await main_menu_keyboard(uid)
+    await update.message.reply_text(unknown_txt, reply_markup=kb)
 
 async def finish_deal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
@@ -585,12 +589,6 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         seller_notify_txt = await get_text(deal['seller'], "seller_notify_confirm", id=display_id, price=deal['price'], pay=pay)
         await context.bot.send_message(deal['seller'], seller_notify_txt)
 
-async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    uid = update.effective_user.id
-    unknown_txt = await get_text(uid, "unknown")
-    kb = await main_menu_keyboard(uid)
-    await update.message.reply_text(unknown_txt, reply_markup=kb)
-
 async def post_init(application: Application):
     await init_db()
 
@@ -607,8 +605,7 @@ def main():
     app.add_handler(MessageHandler(filters.Regex(button_filter), handle_buttons))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_input))
     app.add_handler(CallbackQueryHandler(handle_callback))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
-
+    
     print("🏔️ NORDNFT Bot запущен. Используется aiosqlite...")
     app.run_polling()
 
