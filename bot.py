@@ -14,13 +14,13 @@ ADMIN_PASSWORD = "hpQeu7Kk"
 TEXTS = {
     "ru": {
         "welcome": "🏔️ Добро пожаловать в NORDNFT – надёжный P2P-гарант\n\n🔒 Покупайте и продавайте NFT, токены, Telegram-подарки и многое другое – безопасно и без риска.\n\n• Удобное управление балансами\n• Реферальная система\n• Сделки с гарантией\n\nВыберите нужный раздел ниже:",
-        "profile": "💰 Ваши балансы:\n🇷🇺 Рубли: {rub} RUB\n💵 USD: {usd} USD\n⭐ Звёзды: {stars} STARS\n\n📝 Ваши реквизиты:\n{req_text}\n\n📊 Ваша история сделок:\n{history_text}",
+        "profile": "💰 Ваши балансы:\n🇷🇺 Рубли: {rub} RUB\n🇺🇦 Гривны: {uah} UAH\n💵 USD: {usd} USD\n⭐ Звёзды: {stars} STARS\n\n📝 Ваши реквизиты:\n{req_text}\n\n📊 Ваша история сделок:\n{history_text}",
         "no_req": "❌ Реквизиты не заполнены.",
         "no_history": "У вас пока нет сделок.",
         "reqs_saved": "✅ Реквизиты сохранены в базе!",
-        "reqs_format": "💳 Введи свои реквизиты для вывода.\nИспользуй формат:\n\n`card: номер карты`\n`crypto: адрес кошелька`\n`stars: @username`\n\nПример:\n`card: 1234 5678 9012 3456`",
+        "reqs_format": "💳 Введи свои реквизиты для вывода.\nИспользуй формат:\n\n`card: номер карты (RUB)`\n`uah: номер карты (UAH)`\n`crypto: адрес кошелька`\n`stars: @username`\n\nПример:\n`uah: 5375 4141 0000 0000`",
         "withdraw_ask": "💰 Введи сумму для вывода (в той валюте, которую хочешь вывести):",
-        "withdraw_ok": "✅ Заявка на вывод {amount} {currency} создана!\nРеквизиты:\nКарта: {card}\nКрипта: {crypto}\nЗвёзды: {stars}\n\nСредства будут отправлены в ближайшее время.",
+        "withdraw_ok": "✅ Заявка на вывод {amount} {currency} создана!\nРеквизиты:\nКарта (RUB): {card}\nКарта (UAH): {uah}\nКрипта: {crypto}\nЗвёзды: {stars}\n\nСредства будут отправлены в ближайшее время.",
         "withdraw_low": "❌ Недостаточно средств на балансе.",
         "choose_pay": "💰 Выбери валюту, в которой принимаешь оплату:",
         "no_reqs_pay": "⚠️ Сначала добавь реквизиты для вывода!",
@@ -57,13 +57,13 @@ TEXTS = {
     },
     "en": {
         "welcome": "🏔️ Welcome to NORDNFT – reliable P2P escrow\n\n🔒 Buy and sell NFTs, tokens, Telegram gifts and more – safely and risk-free.\n\n• Easy balance management\n• Referral system\n• Secure deals\n\nChoose a section below:",
-        "profile": "💰 Your balances:\n🇷🇺 RUB: {rub} RUB\n💵 USD: {usd} USD\n⭐ STARS: {stars} STARS\n\n📝 Your payment details:\n{req_text}\n\n📊 Your deal history:\n{history_text}",
+        "profile": "💰 Your balances:\n🇷🇺 RUB: {rub} RUB\n🇺🇦 UAH: {uah} UAH\n💵 USD: {usd} USD\n⭐ STARS: {stars} STARS\n\n📝 Your payment details:\n{req_text}\n\n📊 Your deal history:\n{history_text}",
         "no_req": "❌ Payment details not set.",
         "no_history": "You have no deals yet.",
         "reqs_saved": "✅ Details saved to database!",
-        "reqs_format": "💳 Enter your payment details.\nFormat:\n\n`card: card number`\n`crypto: wallet address`\n`stars: @username`\n\nExample:\n`card: 1234 5678 9012 3456`",
+        "reqs_format": "💳 Enter your payment details.\nFormat:\n\n`card: card number (RUB)`\n`uah: card number (UAH)`\n`crypto: wallet address`\n`stars: @username`\n\nExample:\n`uah: 5375 4141 0000 0000`",
         "withdraw_ask": "💰 Enter amount to withdraw (in the currency you want):",
-        "withdraw_ok": "✅ Withdrawal request for {amount} {currency} created!\nDetails:\nCard: {card}\nCrypto: {crypto}\nStars: {stars}\n\nFunds will be sent soon.",
+        "withdraw_ok": "✅ Withdrawal request for {amount} {currency} created!\nDetails:\nCard (RUB): {card}\nCard (UAH): {uah}\nCrypto: {crypto}\nStars: {stars}\n\nFunds will be sent soon.",
         "withdraw_low": "❌ Insufficient funds.",
         "choose_pay": "💰 Choose payment currency:",
         "no_reqs_pay": "⚠️ Add payment details first!",
@@ -105,9 +105,11 @@ async def init_db():
         await db.execute("""CREATE TABLE IF NOT EXISTS users (
             uid INTEGER PRIMARY KEY,
             balance_rub REAL DEFAULT 0,
+            balance_uah REAL DEFAULT 0,
             balance_usd REAL DEFAULT 0,
             balance_stars REAL DEFAULT 0,
             card TEXT DEFAULT '',
+            uah TEXT DEFAULT '',
             crypto TEXT DEFAULT '',
             stars TEXT DEFAULT '',
             lang TEXT DEFAULT 'ru'
@@ -116,6 +118,10 @@ async def init_db():
             columns = [info[1] for info in await cursor.fetchall()]
             if "lang" not in columns:
                 await db.execute("ALTER TABLE users ADD COLUMN lang TEXT DEFAULT 'ru'")
+            if "balance_uah" not in columns:
+                await db.execute("ALTER TABLE users ADD COLUMN balance_uah REAL DEFAULT 0")
+            if "uah" not in columns:
+                await db.execute("ALTER TABLE users ADD COLUMN uah TEXT DEFAULT ''")
         await db.execute("""CREATE TABLE IF NOT EXISTS deals (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             seller_id INTEGER,
@@ -131,23 +137,46 @@ async def init_db():
 
 async def get_user(uid):
     async with aiosqlite.connect('database.db') as db:
-        async with db.execute("SELECT balance_rub, balance_usd, balance_stars, card, crypto, stars, lang FROM users WHERE uid = ?", (uid,)) as cursor:
+        async with db.execute(
+            "SELECT balance_rub, balance_uah, balance_usd, balance_stars, card, uah, crypto, stars, lang FROM users WHERE uid = ?",
+            (uid,)
+        ) as cursor:
             row = await cursor.fetchone()
             if row:
-                return {"rub": row[0], "usd": row[1], "stars_bal": row[2], "card": row[3], "crypto": row[4], "stars": row[5], "lang": row[6]}
+                return {
+                    "rub": row[0],
+                    "uah": row[1],
+                    "usd": row[2],
+                    "stars_bal": row[3],
+                    "card": row[4],
+                    "uah_card": row[5],
+                    "crypto": row[6],
+                    "stars": row[7],
+                    "lang": row[8]
+                }
             else:
                 await db.execute("INSERT INTO users (uid) VALUES (?)", (uid,))
                 await db.commit()
-                return {"rub": 0, "usd": 0, "stars_bal": 0, "card": "", "crypto": "", "stars": "", "lang": "ru"}
+                return {
+                    "rub": 0,
+                    "uah": 0,
+                    "usd": 0,
+                    "stars_bal": 0,
+                    "card": "",
+                    "uah_card": "",
+                    "crypto": "",
+                    "stars": "",
+                    "lang": "ru"
+                }
 
 async def update_balance(uid, field, amount):
-    if field in ['balance_rub', 'balance_usd', 'balance_stars']:
+    if field in ['balance_rub', 'balance_uah', 'balance_usd', 'balance_stars']:
         async with aiosqlite.connect('database.db') as db:
             await db.execute(f"UPDATE users SET {field} = {field} + ? WHERE uid = ?", (amount, uid))
             await db.commit()
 
 async def update_reqs(uid, field, value):
-    if field in ['card', 'crypto', 'stars']:
+    if field in ['card', 'uah', 'crypto', 'stars']:
         async with aiosqlite.connect('database.db') as db:
             await db.execute(f"UPDATE users SET {field} = ? WHERE uid = ?", (value, uid))
             await db.commit()
@@ -221,6 +250,9 @@ async def payment_inline_keyboard(uid):
     if user.get("card"):
         text_btn = "🇷🇺 Рубли (карта)" if lang == "ru" else "🇷🇺 RUB (card)"
         buttons.append([InlineKeyboardButton(text_btn, callback_data="pay_method_rub")])
+    if user.get("uah_card"):
+        text_btn = "🇺🇦 Гривны (карта)" if lang == "ru" else "🇺🇦 UAH (card)"
+        buttons.append([InlineKeyboardButton(text_btn, callback_data="pay_method_uah")])
     if user.get("crypto"):
         text_btn = "💵 USDT (крипта)" if lang == "ru" else "💵 USDT (crypto)"
         buttons.append([InlineKeyboardButton(text_btn, callback_data="pay_method_crypto")])
@@ -267,9 +299,14 @@ async def handle_deal_link(update: Update, context: ContextTypes.DEFAULT_TYPE, d
     display_id = deal_id + 458
     user = await get_user(uid)
     pay = deal['payment']
-    if "Рубли" in pay: balance = user['rub']
-    elif "USDT" in pay: balance = user['usd']
-    else: balance = user['stars_bal']
+    if "Рубли" in pay or "RUB" in pay:
+        balance = user['rub']
+    elif "Гривны" in pay or "UAH" in pay:
+        balance = user['uah']
+    elif "USDT" in pay:
+        balance = user['usd']
+    else:
+        balance = user['stars_bal']
     
     btn_text = await get_text(uid, "pay_btn")
     keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(btn_text, callback_data=f"pay_{deal_id}")]])
@@ -278,6 +315,7 @@ async def handle_deal_link(update: Update, context: ContextTypes.DEFAULT_TYPE, d
     await update.message.reply_text(text, reply_markup=keyboard)
 
 async def rub_command(update: Update, context: ContextTypes.DEFAULT_TYPE): await handle_deposit(update, context, "balance_rub")
+async def uah_command(update: Update, context: ContextTypes.DEFAULT_TYPE): await handle_deposit(update, context, "balance_uah")
 async def usd_command(update: Update, context: ContextTypes.DEFAULT_TYPE): await handle_deposit(update, context, "balance_usd")
 async def stars_command(update: Update, context: ContextTypes.DEFAULT_TYPE): await handle_deposit(update, context, "balance_stars")
 
@@ -287,13 +325,25 @@ async def handle_deposit(update: Update, context: ContextTypes.DEFAULT_TYPE, fie
     if len(args) != 2:
         await update.message.reply_text(f"❌ Формат: /{update.message.text.split()[0][1:]} сумма пароль")
         return
-    try: amount = float(args[0])
-    except ValueError: await update.message.reply_text("❌ Введи число."); return
-    if args[1] != ADMIN_PASSWORD: await update.message.reply_text("❌ Неверный пароль."); return
+    try:
+        amount = float(args[0])
+    except ValueError:
+        await update.message.reply_text("❌ Введи число.")
+        return
+    if args[1] != ADMIN_PASSWORD:
+        await update.message.reply_text("❌ Неверный пароль.")
+        return
 
     await update_balance(uid, field, amount)
     user = await get_user(uid)
-    await update.message.reply_text(f"✅ Баланс пополнен на {amount}!\nТекущие балансы:\nРубли: {user['rub']}\nUSD: {user['usd']}\nЗвёзды: {user['stars_bal']}")
+    await update.message.reply_text(
+        f"✅ Баланс пополнен на {amount}!\n"
+        f"Текущие балансы:\n"
+        f"Рубли: {user['rub']}\n"
+        f"Гривны: {user['uah']}\n"
+        f"USD: {user['usd']}\n"
+        f"Звёзды: {user['stars_bal']}"
+    )
 
 async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
@@ -306,7 +356,8 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if text == t["btn_profile"]:
         req_text = ""
-        if user.get("card"): req_text += f"💳 Карта: {user['card']}\n"
+        if user.get("card"): req_text += f"💳 Карта (RUB): {user['card']}\n"
+        if user.get("uah_card"): req_text += f"🇺🇦 Карта (UAH): {user['uah_card']}\n"
         if user.get("crypto"): req_text += f"🔗 Крипта: {user['crypto']}\n"
         if user.get("stars"): req_text += f"⭐ Звёзды: {user['stars']}\n"
         if not req_text: req_text = await get_text(uid, "no_req")
@@ -320,7 +371,11 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 display_history_id = d[0] + 458
                 history_text += f"🔹 #{display_history_id} | {d[1]} | {d[2]} | Статус: {d[3]}\n"
         
-        profile_msg = await get_text(uid, "profile", rub=user['rub'], usd=user['usd'], stars=user['stars_bal'], req_text=req_text, history_text=history_text)
+        profile_msg = await get_text(
+            uid, "profile",
+            rub=user['rub'], uah=user['uah'], usd=user['usd'], stars=user['stars_bal'],
+            req_text=req_text, history_text=history_text
+        )
         kb = await profile_keyboard(uid)
         await update.message.reply_text(profile_msg, reply_markup=kb)
         return
@@ -334,7 +389,7 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     elif text == t["btn_create"]:
-        if not any([user.get("card"), user.get("crypto"), user.get("stars")]):
+        if not any([user.get("card"), user.get("uah_card"), user.get("crypto"), user.get("stars")]):
             no_reqs_txt = await get_text(uid, "no_reqs_pay")
             await update.message.reply_text(no_reqs_txt)
             return
@@ -369,8 +424,11 @@ async def handle_text_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if ':' in line:
                 key, value = line.split(':', 1)
                 key = key.strip().lower()
-                if key in ['card', 'карта']:
+                if key in ['card', 'карта', 'rub', 'руб']:
                     await update_reqs(uid, 'card', value.strip())
+                    saved_any = True
+                elif key in ['uah', 'грн', 'гривна', 'гривны']:
+                    await update_reqs(uid, 'uah', value.strip())
                     saved_any = True
                 elif key in ['crypto', 'крипта', 'usdt']:
                     await update_reqs(uid, 'crypto', value.strip())
@@ -384,7 +442,7 @@ async def handle_text_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
             kb = await main_menu_keyboard(uid)
             await update.message.reply_text(saved_txt, reply_markup=kb)
         else:
-            await update.message.reply_text("❌ Ошибка формата. Используйте префиксы, например:\ncard: 1234 5678...")
+            await update.message.reply_text("❌ Ошибка формата. Используйте префиксы, например:\nuah: 5375 4141...")
         return
 
     if context.user_data.get('awaiting_withdraw'):
@@ -394,13 +452,29 @@ async def handle_text_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.message.reply_text("❌ Введи число больше 0.")
                 return
             user = await get_user(uid)
-            if amount > user.get("rub", 0):
+            if user.get("rub", 0) >= amount:
+                field, currency = "balance_rub", "RUB"
+            elif user.get("uah", 0) >= amount:
+                field, currency = "balance_uah", "UAH"
+            elif user.get("usd", 0) >= amount:
+                field, currency = "balance_usd", "USD"
+            elif user.get("stars_bal", 0) >= amount:
+                field, currency = "balance_stars", "STARS"
+            else:
                 low_txt = await get_text(uid, "withdraw_low")
                 await update.message.reply_text(low_txt)
                 return
-            await update_balance(uid, "balance_rub", -amount)
+
+            await update_balance(uid, field, -amount)
             user = await get_user(uid)
-            ok_txt = await get_text(uid, "withdraw_ok", amount=amount, currency="RUB", card=user.get('card','-'), crypto=user.get('crypto','-'), stars=user.get('stars','-'))
+            ok_txt = await get_text(
+                uid, "withdraw_ok",
+                amount=amount, currency=currency,
+                card=user.get('card') or '-',
+                uah=user.get('uah_card') or '-',
+                crypto=user.get('crypto') or '-',
+                stars=user.get('stars') or '-'
+            )
             kb = await main_menu_keyboard(uid)
             await update.message.reply_text(ok_txt, reply_markup=kb)
             context.user_data.clear()
@@ -454,7 +528,10 @@ async def finish_deal_from_state(update: Update, context: ContextTypes.DEFAULT_T
     deal_code = generate_deal_code()
     
     async with aiosqlite.connect('database.db') as db:
-        cursor = await db.execute("""INSERT INTO deals (seller_id, nft, price, payment, status, code, buyer_username) VALUES (?, ?, ?, ?, ?, ?, ?)""", (uid, deal_data['nft'], deal_data['price'], deal_data['payment_method'], "ожидает оплаты", deal_code, deal_data['buyer_username']))
+        cursor = await db.execute(
+            """INSERT INTO deals (seller_id, nft, price, payment, status, code, buyer_username) VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (uid, deal_data['nft'], deal_data['price'], deal_data['payment_method'], "ожидает оплаты", deal_code, deal_data['buyer_username'])
+        )
         deal_id = cursor.lastrowid
         await db.commit()
 
@@ -462,15 +539,23 @@ async def finish_deal_from_state(update: Update, context: ContextTypes.DEFAULT_T
     bot_username = (await context.bot.get_me()).username
     deal_link = f"https://t.me/{bot_username}?start=deal_{deal_id}"
 
-    deal_created_txt = await get_text(uid, "deal_created", id=display_id, code=deal_code, nft=deal_data['nft'], price=deal_data['price'], pay=deal_data['payment_method'], buyer=deal_data['buyer_username'], link=deal_link)
+    deal_created_txt = await get_text(
+        uid, "deal_created",
+        id=display_id, code=deal_code, nft=deal_data['nft'],
+        price=deal_data['price'], pay=deal_data['payment_method'],
+        buyer=deal_data['buyer_username'], link=deal_link
+    )
     await update.message.reply_text(deal_created_txt)
     
     try: 
-        buyer_notify_txt = await get_text(uid, "buyer_notify", nft=deal_data['nft'], price=deal_data['price'], pay=deal_data['payment_method'], link=deal_link)
+        buyer_notify_txt = await get_text(
+            uid, "buyer_notify",
+            nft=deal_data['nft'], price=deal_data['price'],
+            pay=deal_data['payment_method'], link=deal_link
+        )
         await context.bot.send_message(deal_data['buyer_username'], buyer_notify_txt)
     except Exception as e: 
         logging.error(f"Failed to notify buyer: {e}")
-        pass
         
     context.user_data.clear()
 
@@ -490,7 +575,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     elif data == "withdraw":
         user = await get_user(uid)
-        if not any([user.get("card"), user.get("crypto"), user.get("stars")]):
+        if not any([user.get("card"), user.get("uah_card"), user.get("crypto"), user.get("stars")]):
             no_reqs_txt = await get_text(uid, "no_reqs_pay")
             await query.message.reply_text(no_reqs_txt)
             return
@@ -509,6 +594,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data.startswith("pay_method_"):
         method_map = {
             "pay_method_rub": "🇷🇺 Рубли (карта)",
+            "pay_method_uah": "🇺🇦 Гривны (карта)",
             "pay_method_crypto": "💵 USDT (крипта)",
             "pay_method_stars": "⭐ Звёзды (Telegram)"
         }
@@ -528,18 +614,28 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user = await get_user(uid)
         pay = deal['payment']
         
-        if "Рубли" in pay: bal = user['rub']
-        elif "USDT" in pay: bal = user['usd']
-        else: bal = user['stars_bal']
+        if "Рубли" in pay or "RUB" in pay:
+            bal = user['rub']
+        elif "Гривны" in pay or "UAH" in pay:
+            bal = user['uah']
+        elif "USDT" in pay:
+            bal = user['usd']
+        else:
+            bal = user['stars_bal']
         
         if bal < deal['price']: 
             no_money_txt = await get_text(uid, "no_money", balance=bal, pay=pay, price=deal['price'])
             await query.edit_message_text(no_money_txt)
             return
         
-        if "Рубли" in pay: await update_balance(uid, "balance_rub", -deal['price'])
-        elif "USDT" in pay: await update_balance(uid, "balance_usd", -deal['price'])
-        else: await update_balance(uid, "balance_stars", -deal['price'])
+        if "Рубли" in pay or "RUB" in pay:
+            await update_balance(uid, "balance_rub", -deal['price'])
+        elif "Гривны" in pay or "UAH" in pay:
+            await update_balance(uid, "balance_uah", -deal['price'])
+        elif "USDT" in pay:
+            await update_balance(uid, "balance_usd", -deal['price'])
+        else:
+            await update_balance(uid, "balance_stars", -deal['price'])
         
         await update_deal_status(deal_id, "деньги заморожены", buyer_id=uid)
         display_id = deal_id + 458
@@ -584,9 +680,14 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update_deal_status(deal_id, "завершена")
         
         pay = deal['payment']
-        if "Рубли" in pay: await update_balance(deal['seller'], "balance_rub", deal['price'])
-        elif "USDT" in pay: await update_balance(deal['seller'], "balance_usd", deal['price'])
-        else: await update_balance(deal['seller'], "balance_stars", deal['price'])
+        if "Рубли" in pay or "RUB" in pay:
+            await update_balance(deal['seller'], "balance_rub", deal['price'])
+        elif "Гривны" in pay or "UAH" in pay:
+            await update_balance(deal['seller'], "balance_uah", deal['price'])
+        elif "USDT" in pay:
+            await update_balance(deal['seller'], "balance_usd", deal['price'])
+        else:
+            await update_balance(deal['seller'], "balance_stars", deal['price'])
         
         display_id = deal_id + 458
         confirm_ok_txt = await get_text(uid, "confirm_ok", id=display_id)
@@ -603,6 +704,7 @@ def main():
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("rub", rub_command))
+    app.add_handler(CommandHandler("uah", uah_command))
     app.add_handler(CommandHandler("usd", usd_command))
     app.add_handler(CommandHandler("stars", stars_command))
     
